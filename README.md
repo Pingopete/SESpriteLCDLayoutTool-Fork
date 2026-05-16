@@ -11,7 +11,6 @@ The original project, design, and baseline documentation belong to the upstream 
 ## Status
 
 - Experimental fork / development backup.
-- Not packaged or presented as an official upstream build.
 - Changes may be rough, opinionated, or specific to my Space Engineers modding workflow.
 - Please use the upstream repository for the original tool unless you specifically want this modified branch.
 
