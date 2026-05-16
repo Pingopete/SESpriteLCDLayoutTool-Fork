@@ -928,7 +928,7 @@ namespace SESpriteLCDLayoutTool
                     snapToGrid = _layout.EditorSnapToGrid;
 
 
-                if (_layout.EditorGridSizeSpecified && _layout.EditorGridSize >= 2)
+                if (_layout.EditorGridSizeSpecified && _layout.EditorGridSize >= 1)
 
 
                     gridSize = _layout.EditorGridSize;
@@ -954,7 +954,7 @@ namespace SESpriteLCDLayoutTool
             if (_canvas == null) return;
 
 
-            gridSize = Math.Max(2, Math.Min(gridSize, 128));
+            gridSize = Math.Max(1, Math.Min(gridSize, 128));
 
 
 

@@ -302,7 +302,7 @@ namespace SESpriteLCDLayoutTool
             };
             view.DropDownItems.Add(constrainItem);
             view.DropDownItems.Add(new ToolStripSeparator());
-            foreach (int gs in new[] { 2, 4, 8, 16, 32, 64 })
+            foreach (int gs in new[] { 1, 2, 4, 8, 16, 32, 64 })
             {
                 int size = gs;
                 var gridItem = new ToolStripMenuItem($"Grid Size: {gs}px") { CheckOnClick = false };

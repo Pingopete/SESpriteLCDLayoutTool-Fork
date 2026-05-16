@@ -276,7 +276,7 @@ namespace SESpriteLCDLayoutTool.Controls
         public int GridSize
         {
             get => _gridSize;
-            set { _gridSize = Math.Max(2, Math.Min(value, 128)); InvalidateSceneCache(); Invalidate(); }
+            set { _gridSize = Math.Max(1, Math.Min(value, 128)); InvalidateSceneCache(); Invalidate(); }
         }
 
         /// <summary>Set the texture cache to enable real-texture rendering.</summary>

@@ -98,7 +98,7 @@ namespace SESpriteLCDLayoutTool.Data
                     else if (trimmed.StartsWith("CanvasSnapToGrid=", StringComparison.OrdinalIgnoreCase))
                     { if (bool.TryParse(trimmed.Substring("CanvasSnapToGrid=".Length), out bool csg)) CanvasSnapToGrid = csg; }
                     else if (trimmed.StartsWith("CanvasGridSize=", StringComparison.OrdinalIgnoreCase))
-                    { if (int.TryParse(trimmed.Substring("CanvasGridSize=".Length), out int cgs)) CanvasGridSize = Math.Max(2, Math.Min(cgs, 128)); }
+                    { if (int.TryParse(trimmed.Substring("CanvasGridSize=".Length), out int cgs)) CanvasGridSize = Math.Max(1, Math.Min(cgs, 128)); }
                     else if (trimmed.StartsWith("RecentFile=", StringComparison.OrdinalIgnoreCase))
                     {
                         string rf = trimmed.Substring("RecentFile=".Length).Trim();
