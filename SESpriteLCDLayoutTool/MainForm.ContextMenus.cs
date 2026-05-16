@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -71,6 +71,9 @@ namespace SESpriteLCDLayoutTool
                         return base.ProcessCmdKey(ref msg, keyData);
                     }
                 }
+            if (IsStandardTextEditShortcut(keyData) && IsStandardTextEditControlFocused())
+                return base.ProcessCmdKey(ref msg, keyData);
+
 
                 switch (keyData)
                 {
@@ -78,11 +81,15 @@ namespace SESpriteLCDLayoutTool
                     case Keys.Control | Keys.N:
                     case Keys.Control | Keys.E:
                     case Keys.Control | Keys.T:
+                    case Keys.Control | Keys.U:
                         break; // fall through to global handler
                     default:
                         return base.ProcessCmdKey(ref msg, keyData);
                 }
             }
+            if (IsStandardTextEditShortcut(keyData) && IsStandardTextEditControlFocused())
+                return base.ProcessCmdKey(ref msg, keyData);
+
 
             switch (keyData)
             {
@@ -97,6 +104,12 @@ namespace SESpriteLCDLayoutTool
                 case Keys.Control | Keys.Y:
                     PerformRedo();
                     return true;
+                // Update generated/source code from current layout
+                case Keys.Control | Keys.U:
+                    CommitLayoutCodeUpdate();
+                    return true;
+
+
 
                 // Duplicate
                 case Keys.Control | Keys.D:
@@ -105,41 +118,41 @@ namespace SESpriteLCDLayoutTool
 
                 // Arrow-key nudge (1 px) and Shift+Arrow (10 px)
                 case Keys.Up:
-                    PushUndo(); _canvas.NudgeSelected(0, -1); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(0, -1); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Down:
-                    PushUndo(); _canvas.NudgeSelected(0, 1); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(0, 1); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Left:
-                    PushUndo(); _canvas.NudgeSelected(-1, 0); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(-1, 0); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Right:
-                    PushUndo(); _canvas.NudgeSelected(1, 0); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(1, 0); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Shift | Keys.Up:
-                    PushUndo(); _canvas.NudgeSelected(0, -10); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(0, -10); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Shift | Keys.Down:
-                    PushUndo(); _canvas.NudgeSelected(0, 10); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(0, 10); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Shift | Keys.Left:
-                    PushUndo(); _canvas.NudgeSelected(-10, 0); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(-10, 0); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Shift | Keys.Right:
-                    PushUndo(); _canvas.NudgeSelected(10, 0); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.NudgeSelected(10, 0); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
 
                 // Layer order
                 case Keys.Control | Keys.OemCloseBrackets:
-                    PushUndo(); _canvas.MoveSelectedUp(); RefreshLayerList(); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.MoveSelectedUp(); RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
                 case Keys.Control | Keys.OemOpenBrackets:
-                    PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); if (!_codeBoxDirty) RefreshCode();
+                    PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true);
                     return true;
 
                 // Snap-to-grid toggle
                 case Keys.Control | Keys.G:
-                    _canvas.SnapToGrid = !_canvas.SnapToGrid;
+                    ApplyEditorGridSettings(!_canvas.SnapToGrid, _canvas.GridSize, persistAppSettings: true);
                     SetStatus(_canvas.SnapToGrid ? "Snap to grid enabled" : "Snap to grid disabled");
                     return true;
 
@@ -174,11 +187,6 @@ namespace SESpriteLCDLayoutTool
                         NewLayout();
                     return true;
 
-                // Paste layout code
-                case Keys.Control | Keys.V:
-                    ShowPasteLayoutDialog();
-                    return true;
-
                 // Template gallery
                 case Keys.Control | Keys.T:
                     ShowTemplateGallery();
@@ -191,9 +199,129 @@ namespace SESpriteLCDLayoutTool
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+        private static bool IsStandardTextEditShortcut(Keys keyData)
+        {
+            return keyData == (Keys.Control | Keys.C)
+                || keyData == (Keys.Control | Keys.V)
+                || keyData == (Keys.Control | Keys.X)
+                || keyData == (Keys.Control | Keys.A);
+        }
+
+        private bool IsStandardTextEditControlFocused()
+        {
+            Control c = ActiveControl;
+            while (c is ContainerControl container && container.ActiveControl != null)
+                c = container.ActiveControl;
+
+            return c is TextBoxBase
+                || c is ComboBox
+                || c is NumericUpDown
+                || c is DomainUpDown;
+        }
+
 
         // ── Undo / Redo / Duplicate / Center helpers ──────────────────────────────
         private void PushUndo() => _undo.PushUndo(_layout);
+
+        private void SetLiveLayoutEditMode(bool enabled)
+        {
+            _liveLayoutEditMode = enabled;
+            if (_mnuLiveLayoutEditToggle != null && _mnuLiveLayoutEditToggle.Checked != enabled)
+                _mnuLiveLayoutEditToggle.Checked = enabled;
+
+            UpdateLayoutCodePendingUi();
+            SetStatus(enabled
+                ? "Live layout edit mode on - preview updates stay live; press Ctrl+U or Update Code to write source."
+                : "Live layout edit mode off - layout edits write code immediately.");
+        }
+
+        private void MarkLayoutCodePending()
+        {
+            _layoutCodePending = true;
+            UpdateLayoutCodePendingUi();
+            SetStatus("Layout changed - press Ctrl+U or Update Code to write source.");
+        }
+
+        private void RefreshCodeAfterLayoutEdit(bool writeBack = true, bool force = false)
+        {
+            MarkGameBridgeDirty();
+            _canvas?.MarkSceneCacheDirty();
+            _propWriteBackTimer?.Stop();
+            MarkLayoutCodePending();
+        }
+
+        private void CommitLayoutCodeUpdate()
+        {
+            if (_layout == null) { SetStatus("No layout loaded."); return; }
+            _propWriteBackTimer?.Stop();
+            _layoutCodePending = false;
+            ClearCodeDirty();
+            RefreshCode(writeBack: true, force: true);
+            RefreshDebugStats();
+            UpdateLayoutCodePendingUi();
+            SetStatus("Code updated from current layout.");
+        }
+
+        private void UpdateLayoutCodePendingUi()
+        {
+            if (_lblCodeTitle == null) return;
+            if (_layoutCodePending)
+            {
+                _lblCodeTitle.Text = "Code pending";
+                _lblCodeTitle.ForeColor = Color.FromArgb(255, 190, 80);
+            }
+            else if (_lblCodeTitle.Text == "Code pending")
+            {
+                _lblCodeTitle.Text = "Generated C# Code";
+                _lblCodeTitle.ForeColor = Color.FromArgb(150, 200, 255);
+            }
+        }
+
+        private RectangleF GetSpriteSurfaceBounds(SpriteEntry sp)
+        {
+            float w = Math.Abs(sp.Width);
+            float h = Math.Abs(sp.Height);
+            if (sp.Type == SpriteEntryType.Text)
+            {
+                switch (sp.Alignment)
+                {
+                    case SpriteTextAlignment.Right:  return new RectangleF(sp.X - w, sp.Y, w, h);
+                    case SpriteTextAlignment.Center: return new RectangleF(sp.X - w / 2f, sp.Y, w, h);
+                    default:                         return new RectangleF(sp.X, sp.Y, w, h);
+                }
+            }
+            return new RectangleF(sp.X - w / 2f, sp.Y - h / 2f, w, h);
+        }
+
+        private RectangleF GetSelectionSurfaceBounds(List<SpriteEntry> sprites)
+        {
+            RectangleF bounds = GetSpriteSurfaceBounds(sprites[0]);
+            for (int i = 1; i < sprites.Count; i++)
+                bounds = RectangleF.Union(bounds, GetSpriteSurfaceBounds(sprites[i]));
+            return bounds;
+        }
+
+        private void MoveSelectedLayerToTop()
+        {
+            var selected = GetSelectedSprites();
+            if (selected.Count == 0) { SetStatus("Nothing selected to move."); return; }
+            PushUndo();
+            _canvas.MoveSelectedToTop();
+            RefreshLayerList();
+            RefreshCodeAfterLayoutEdit(writeBack: true);
+            SetStatus(selected.Count == 1 ? "Moved layer to top" : $"Moved {selected.Count} layers to top");
+        }
+
+        private void MoveSelectedLayerToBottom()
+        {
+            var selected = GetSelectedSprites();
+            if (selected.Count == 0) { SetStatus("Nothing selected to move."); return; }
+            PushUndo();
+            _canvas.MoveSelectedToBottom();
+            RefreshLayerList();
+            RefreshCodeAfterLayoutEdit(writeBack: true);
+            SetStatus(selected.Count == 1 ? "Moved layer to bottom" : $"Moved {selected.Count} layers to bottom");
+        }
 
         /// <summary>
         /// Opens the floating rig editor (option C), or focuses the existing instance.
@@ -229,11 +357,9 @@ namespace SESpriteLCDLayoutTool
 
         private void OnDragCompleted(object sender, EventArgs e)
         {
-            // Undo snapshot was pushed in BeginDrag via OnMouseDown;
-            // nothing extra needed here — the drag's final state is the "current" state.
-            ClearCodeDirty();
-            RefreshCode(writeBack: true);
-            RefreshDebugStats();
+            // Dragging large layouts is interactive; source patching is explicit via
+            // Update Code / Ctrl+U so mouse-up never blocks the canvas for seconds.
+            MarkLayoutCodePending();
             // If a bone was edited, refresh the rig editor inspectors.
             if (_rigEditor != null && !_rigEditor.IsDisposed) _rigEditor.RefreshFromLayout();
         }
@@ -310,15 +436,20 @@ namespace SESpriteLCDLayoutTool
             if (selected.Count == 0) { SetStatus("Nothing selected to duplicate."); return; }
 
             PushUndo();
-            SpriteEntry lastDup = null;
+            var bounds = GetSelectionSurfaceBounds(selected);
+            var anchor = _canvas.GetPreferredDuplicateAnchor();
+            float dx = anchor.X - (bounds.Left + bounds.Width / 2f);
+            float dy = anchor.Y - (bounds.Top + bounds.Height / 2f);
+            var duplicates = new List<SpriteEntry>();
+
             foreach (var src in selected)
             {
                 var dup = new SpriteEntry
                 {
                     Type       = src.Type,
                     SpriteName = src.SpriteName,
-                    X          = src.X + 20f,
-                    Y          = src.Y + 20f,
+                    X          = src.X + dx,
+                    Y          = src.Y + dy,
                     Width      = src.Width,
                     Height     = src.Height,
                     ColorR     = src.ColorR,
@@ -332,11 +463,13 @@ namespace SESpriteLCDLayoutTool
                     Scale      = src.Scale,
                 };
                 _layout.Sprites.Add(dup);
-                lastDup = dup;
+                duplicates.Add(dup);
             }
-            if (lastDup != null) _canvas.SelectedSprite = lastDup;
+
+            if (duplicates.Count > 0)
+                _canvas.SelectSprites(duplicates, duplicates[duplicates.Count - 1]);
             RefreshLayerList();
-            RefreshCode();
+            RefreshCodeAfterLayoutEdit(writeBack: true);
             SetStatus(selected.Count == 1 ? "Duplicated sprite" : $"Duplicated {selected.Count} sprites");
         }
 
@@ -459,8 +592,10 @@ namespace SESpriteLCDLayoutTool
             var leaveGroupItem = ctx.Items.Add("Leave Animation Group", null, (s, e) => LeaveAnimationGroup());
 
             ctx.Items.Add(new ToolStripSeparator());
-            ctx.Items.Add("Layer Up\tCtrl+]",         null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
-            ctx.Items.Add("Layer Down\tCtrl+[",       null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
+            ctx.Items.Add("Layer Up\tCtrl+]",         null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            ctx.Items.Add("Layer Down\tCtrl+[",       null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            ctx.Items.Add("Move To Top",          null, (s, e) => MoveSelectedLayerToTop());
+            ctx.Items.Add("Move To Bottom",       null, (s, e) => MoveSelectedLayerToBottom());
             ctx.Items.Add(new ToolStripSeparator());
             ctx.Items.Add("Reset View\tCtrl+0",       null, (s, e) => _canvas.ResetView());
 
@@ -534,8 +669,10 @@ namespace SESpriteLCDLayoutTool
             var ctx = new ContextMenuStrip { BackColor = Color.FromArgb(45, 45, 48), ForeColor = Color.FromArgb(220, 220, 220) };
             ctx.Renderer = new DarkMenuRenderer();
 
-            var moveUp   = ctx.Items.Add("Move Up",    null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
-            var moveDown = ctx.Items.Add("Move Down",  null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
+            var moveUp   = ctx.Items.Add("Move Up",    null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            var moveDown = ctx.Items.Add("Move Down",  null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            var moveTop = ctx.Items.Add("Move To Top", null, (s, e) => MoveSelectedLayerToTop());
+            var moveBottom = ctx.Items.Add("Move To Bottom", null, (s, e) => MoveSelectedLayerToBottom());
             ctx.Items.Add(new ToolStripSeparator());
             var dupItem  = ctx.Items.Add("Duplicate",  null, (s, e) => DuplicateSelected());
             var delItem  = ctx.Items.Add("Delete",     null, (s, e) => DeleteSelected());
@@ -571,14 +708,17 @@ namespace SESpriteLCDLayoutTool
                     return;
                 }
 
-                int selCount = _lstLayers.SelectedIndices.Count;
+                int selCount = Math.Max(_lstLayers.SelectedIndices.Count, GetSelectedSprites().Count);
                 bool multi = selCount > 1;
 
-                // Move up/down only for single selection
+                // Move up/down only for single selection; top/bottom supports multi-select.
                 int idx = _layout.Sprites.IndexOf(_canvas.SelectedSprite);
                 moveUp.Enabled   = !multi && idx < _layout.Sprites.Count - 1;
                 moveDown.Enabled = !multi && idx > 0;
-
+                moveTop.Enabled = selCount > 0;
+                moveBottom.Enabled = selCount > 0;
+                moveTop.Text = multi ? $"Move To Top ({selCount} selected)" : "Move To Top";
+                moveBottom.Text = multi ? $"Move To Bottom ({selCount} selected)" : "Move To Bottom";
                 // Update labels for multi-select
                 dupItem.Text = multi ? $"Duplicate ({selCount} selected)" : "Duplicate";
                 delItem.Text = multi ? $"Delete ({selCount} selected)"    : "Delete";

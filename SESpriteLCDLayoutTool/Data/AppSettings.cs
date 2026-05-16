@@ -39,6 +39,11 @@ namespace SESpriteLCDLayoutTool.Data
         /// <summary>Saved distance for the top (canvas | properties) splitter.</summary>
         public static int TopSplitterDistance { get; set; }
 
+        /// <summary>Last-used canvas snap-to-grid setting.</summary>
+        public static bool CanvasSnapToGrid { get; set; }
+        /// <summary>Last-used canvas grid size in LCD pixels.</summary>
+        public static int CanvasGridSize { get; set; } = 16;
+
         // ── Recent files ──────────────────────────────────────────────────────────
         /// <summary>Most-recently-used .seld file paths, newest first.</summary>
         public static List<string> RecentFiles { get; } = new List<string>();
@@ -90,6 +95,10 @@ namespace SESpriteLCDLayoutTool.Data
                     { if (int.TryParse(trimmed.Substring("WorkSplitterDistance=".Length), out int ws)) WorkSplitterDistance = ws; }
                     else if (trimmed.StartsWith("TopSplitterDistance=", StringComparison.OrdinalIgnoreCase))
                     { if (int.TryParse(trimmed.Substring("TopSplitterDistance=".Length), out int ts)) TopSplitterDistance = ts; }
+                    else if (trimmed.StartsWith("CanvasSnapToGrid=", StringComparison.OrdinalIgnoreCase))
+                    { if (bool.TryParse(trimmed.Substring("CanvasSnapToGrid=".Length), out bool csg)) CanvasSnapToGrid = csg; }
+                    else if (trimmed.StartsWith("CanvasGridSize=", StringComparison.OrdinalIgnoreCase))
+                    { if (int.TryParse(trimmed.Substring("CanvasGridSize=".Length), out int cgs)) CanvasGridSize = Math.Max(2, Math.Min(cgs, 128)); }
                     else if (trimmed.StartsWith("RecentFile=", StringComparison.OrdinalIgnoreCase))
                     {
                         string rf = trimmed.Substring("RecentFile=".Length).Trim();
@@ -116,6 +125,8 @@ namespace SESpriteLCDLayoutTool.Data
                 sb.AppendLine($"MainSplitterDistance={MainSplitterDistance}");
                 sb.AppendLine($"WorkSplitterDistance={WorkSplitterDistance}");
                 sb.AppendLine($"TopSplitterDistance={TopSplitterDistance}");
+                sb.AppendLine($"CanvasSnapToGrid={CanvasSnapToGrid}");
+                sb.AppendLine($"CanvasGridSize={CanvasGridSize}");
                 foreach (string rf in RecentFiles)
                     sb.AppendLine($"RecentFile={rf}");
                 File.WriteAllText(SettingsPath, sb.ToString());

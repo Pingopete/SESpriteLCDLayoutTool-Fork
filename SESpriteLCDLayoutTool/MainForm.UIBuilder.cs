@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -194,7 +194,7 @@ namespace SESpriteLCDLayoutTool
             edit.DropDownItems.Add("Undo\tCtrl+Z",                null, (s, e) => PerformUndo());
             edit.DropDownItems.Add("Redo\tCtrl+Y",                null, (s, e) => PerformRedo());
             edit.DropDownItems.Add(new ToolStripSeparator());
-            edit.DropDownItems.Add("Paste Layout Code…\tCtrl+V",  null, (s, e) => ShowPasteLayoutDialog());
+            edit.DropDownItems.Add("Paste Layout Code…",  null, (s, e) => ShowPasteLayoutDialog());
             edit.DropDownItems.Add("Apply Runtime Snapshot…",      null, (s, e) => ShowApplySnapshotDialog());
             edit.DropDownItems.Add("Render Parameter Inspector…",  null, (s, e) => ShowRenderParameterInspector());
             edit.DropDownItems.Add(new ToolStripSeparator());
@@ -206,6 +206,14 @@ namespace SESpriteLCDLayoutTool
             edit.DropDownItems.Add(_mnuCaptureSnapshot);
             _mnuFileWatchToggle = new ToolStripMenuItem("Watch LCD Output File…", null, (s, e) => ToggleFileWatching());
             edit.DropDownItems.Add(_mnuFileWatchToggle);
+            _mnuGameBridgeToggle = new ToolStripMenuItem("Start Export To Game LCD", null, (s, e) => ToggleGameBridgeExport());
+            edit.DropDownItems.Add(_mnuGameBridgeToggle);
+            edit.DropDownItems.Add(new ToolStripSeparator());
+            _mnuLiveLayoutEditToggle = new ToolStripMenuItem("Live Layout Edit Mode") { CheckOnClick = true };
+            _mnuLiveLayoutEditToggle.CheckedChanged += (s, e) => SetLiveLayoutEditMode(_mnuLiveLayoutEditToggle.Checked);
+            edit.DropDownItems.Add(_mnuLiveLayoutEditToggle);
+            edit.DropDownItems.Add("Update Code From Layout\tCtrl+U", null, (s, e) => CommitLayoutCodeUpdate());
+            edit.DropDownItems.Add(new ToolStripSeparator());
             _mnuClipboardToggle = new ToolStripMenuItem("Watch Clipboard (PB)…", null, (s, e) => ToggleClipboardWatching());
             edit.DropDownItems.Add(_mnuClipboardToggle);
             edit.DropDownItems.Add(new ToolStripSeparator());
@@ -213,8 +221,10 @@ namespace SESpriteLCDLayoutTool
             edit.DropDownItems.Add("Delete Selected\tDel",        null, (s, e) => DeleteSelected());
             edit.DropDownItems.Add(new ToolStripSeparator());
             edit.DropDownItems.Add("Center on Surface",           null, (s, e) => CenterSelectedOnSurface());
-            edit.DropDownItems.Add("Layer Up\tCtrl+]",            null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
-            edit.DropDownItems.Add("Layer Down\tCtrl+[",          null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); if (!_codeBoxDirty) RefreshCode(); });
+            edit.DropDownItems.Add("Layer Up\tCtrl+]",            null, (s, e) => { PushUndo(); _canvas.MoveSelectedUp();   RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            edit.DropDownItems.Add("Layer Down\tCtrl+[",          null, (s, e) => { PushUndo(); _canvas.MoveSelectedDown(); RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true); });
+            edit.DropDownItems.Add("Move To Top",             null, (s, e) => MoveSelectedLayerToTop());
+            edit.DropDownItems.Add("Move To Bottom",          null, (s, e) => MoveSelectedLayerToBottom());
             ms.Items.Add(edit);
 
             // ── Insert menu ──
@@ -228,14 +238,18 @@ namespace SESpriteLCDLayoutTool
                 PushUndo();
                 var sp = _canvas.AddSprite("Text", isText: true);
                 if (sp != null) { sp.FontId = font; OnSelectionChanged(_canvas, EventArgs.Empty); }
-                RefreshLayerList(); if (!_codeBoxDirty) RefreshCode();
+                RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true);
             });
             ms.Items.Add(insert);
 
             var view = new ToolStripMenuItem("View");
-            var snapItem = new ToolStripMenuItem("Snap to Grid\tCtrl+G") { CheckOnClick = true };
-            snapItem.CheckedChanged += (s, e) => { _canvas.SnapToGrid = snapItem.Checked; SetStatus(snapItem.Checked ? "Snap to grid enabled" : "Snap to grid disabled"); };
-            view.DropDownItems.Add(snapItem);
+            _mnuSnapToGrid = new ToolStripMenuItem("Snap to Grid\tCtrl+G") { CheckOnClick = true };
+            _mnuSnapToGrid.CheckedChanged += (s, e) =>
+            {
+                ApplyEditorGridSettings(_mnuSnapToGrid.Checked, _canvas.GridSize, persistAppSettings: true);
+                SetStatus(_mnuSnapToGrid.Checked ? "Snap to grid enabled" : "Snap to grid disabled");
+            };
+            view.DropDownItems.Add(_mnuSnapToGrid);
 
             var snapSpriteItem = new ToolStripMenuItem("Snap to Sprite Edges\tCtrl+Shift+G") { CheckOnClick = true };
             snapSpriteItem.CheckedChanged += (s, e) =>
@@ -269,6 +283,16 @@ namespace SESpriteLCDLayoutTool
                     : "Text bounding boxes hidden (cleaner view for screenshots/GIFs)");
             };
             view.DropDownItems.Add(textBoxesItem);
+            var fastPreviewItem = new ToolStripMenuItem("Fast Preview Mode") { CheckOnClick = true };
+            fastPreviewItem.CheckedChanged += (s, e) =>
+            {
+                if (_canvas == null) return;
+                _canvas.FastPreviewMode = fastPreviewItem.Checked;
+                SetStatus(fastPreviewItem.Checked
+                    ? "Fast preview enabled - skips expensive overlays and uses pixel-fast texture scaling"
+                    : "Fast preview disabled");
+            };
+            view.DropDownItems.Add(fastPreviewItem);
 
             var constrainItem = new ToolStripMenuItem("Constrain Sprites to Surface") { CheckOnClick = true };
             constrainItem.CheckedChanged += (s, e) =>
@@ -278,10 +302,17 @@ namespace SESpriteLCDLayoutTool
             };
             view.DropDownItems.Add(constrainItem);
             view.DropDownItems.Add(new ToolStripSeparator());
-            foreach (int gs in new[] { 8, 16, 32, 64 })
+            foreach (int gs in new[] { 2, 4, 8, 16, 32, 64 })
             {
                 int size = gs;
-                view.DropDownItems.Add($"Grid Size: {gs}px", null, (s, e) => { _canvas.GridSize = size; SetStatus($"Grid size set to {size}px"); });
+                var gridItem = new ToolStripMenuItem($"Grid Size: {gs}px") { CheckOnClick = false };
+                gridItem.Click += (s, e) =>
+                {
+                    ApplyEditorGridSettings(_canvas.SnapToGrid, size, persistAppSettings: true);
+                    SetStatus($"Grid size set to {size}px");
+                };
+                _mnuGridSizeItems[size] = gridItem;
+                view.DropDownItems.Add(gridItem);
             }
             view.DropDownItems.Add(new ToolStripSeparator());
             view.DropDownItems.Add("Zoom In\tCtrl+=",   null, (s, e) => { _canvas.Zoom *= 1.25f; });
@@ -467,7 +498,7 @@ namespace SESpriteLCDLayoutTool
                 PushUndo();
                 var sp = _canvas.AddSprite("Text", isText: true);
                 if (sp != null) { sp.FontId = font; OnSelectionChanged(_canvas, EventArgs.Empty); }
-                RefreshLayerList(); if (!_codeBoxDirty) RefreshCode();
+                RefreshLayerList(); RefreshCodeAfterLayoutEdit(writeBack: true);
             };
 
             bottomTable.Controls.Add(lblCustom,      0, 0);
@@ -527,8 +558,36 @@ namespace SESpriteLCDLayoutTool
             };
             _btnShowAll.FlatAppearance.BorderSize = 0;
             _btnShowAll.Click += (s, e) => RestoreFullView();
+            var btnLayerTop = new Button
+            {
+                Text      = "Top",
+                Dock      = DockStyle.Right,
+                Width     = 44,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(60, 70, 95),
+                ForeColor = Color.White,
+                Font      = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+            };
+            btnLayerTop.FlatAppearance.BorderSize = 0;
+            btnLayerTop.Click += (s, e) => MoveSelectedLayerToTop();
+            var btnLayerBottom = new Button
+            {
+                Text      = "Bottom",
+                Dock      = DockStyle.Right,
+                Width     = 56,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.FromArgb(60, 70, 95),
+                ForeColor = Color.White,
+                Font      = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                Cursor    = Cursors.Hand,
+            };
+            btnLayerBottom.FlatAppearance.BorderSize = 0;
+            btnLayerBottom.Click += (s, e) => MoveSelectedLayerToBottom();
             layerHeader.Controls.Add(lblLayers);
             layerHeader.Controls.Add(_btnShowAll);
+            layerHeader.Controls.Add(btnLayerBottom);
+            layerHeader.Controls.Add(btnLayerTop);
             _lstLayers = new ListBox
             {
                 Dock          = DockStyle.Bottom,
@@ -1304,3 +1363,6 @@ namespace SESpriteLCDLayoutTool
 
     }
 }
+
+
+

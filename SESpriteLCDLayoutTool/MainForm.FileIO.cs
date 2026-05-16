@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -69,6 +69,7 @@ namespace SESpriteLCDLayoutTool
                     _layout = (LcdLayout)xs.Deserialize(fs);
                 _currentFile = filePath;
                 _canvas.CanvasLayout = _layout;
+                ApplyEditorGridSettingsFromLayoutOrApp();
                 RefreshLayerList();
                 ClearCodeDirty();
 
@@ -101,6 +102,7 @@ namespace SESpriteLCDLayoutTool
                         _layout = (LcdLayout)xs.Deserialize(fs);
                     _currentFile   = dlg.FileName;
                     _canvas.CanvasLayout = _layout;
+                    ApplyEditorGridSettingsFromLayoutOrApp();
                     RefreshLayerList();
                     ClearCodeDirty();
 
@@ -139,6 +141,7 @@ namespace SESpriteLCDLayoutTool
 
             try
             {
+                CaptureEditorGridSettingsToLayout();
                 var xs = new XmlSerializer(typeof(LcdLayout));
                 using (var fs = File.Create(_currentFile))
                     xs.Serialize(fs, _layout);

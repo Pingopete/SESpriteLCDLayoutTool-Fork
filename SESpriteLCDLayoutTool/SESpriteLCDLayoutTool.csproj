@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -142,6 +142,7 @@
     <Compile Include="MainForm.GifExport.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="MainForm.GameBridge.cs" />
     <Compile Include="Models\AnimationEffect.cs" />
     <Compile Include="Models\Rig\Bone.cs" />
     <Compile Include="Models\Rig\Rig.cs" />
@@ -241,7 +242,7 @@
     <Compile Include="Services\TemplateGallery.cs" />
     <Compile Include="Services\UndoManager.cs" />
     <Compile Include="Services\WatchExpressionEvaluator.cs" />
-    <Compile Include="SESpriteLCDLayoutTool\Services\TemplateMerger.cs" />
+    <Compile Include="Services\TemplateMerger.cs" />
     <Compile Include="TemplateGalleryDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -285,6 +286,9 @@
     <Reference Include="System.Collections.Immutable">
       <HintPath>$(NuGetPackageRoot)system.collections.immutable\7.0.0\lib\net462\System.Collections.Immutable.dll</HintPath>
     </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>D:\Projects\Space Engineers Stuff\Grid Schematics Mod\LCD Layout Tool\System.Memory.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="CopyScintillaNativeDlls" AfterTargets="Build">
@@ -295,3 +299,5 @@
     <Copy SourceFiles="$(ScintillaPackageDir)\x64\Lexilla.dll" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
   </Target>
 </Project>
+
+

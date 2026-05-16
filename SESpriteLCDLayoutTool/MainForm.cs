@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -228,8 +228,14 @@ namespace SESpriteLCDLayoutTool
         private Label _lblCodeTitle;
         private Label _lblCodeMode;
         private Button _btnApplyCode;
+        private bool _liveLayoutEditMode;
+        private bool _layoutCodePending;
+        private ToolStripMenuItem _mnuLiveLayoutEditToggle;
+        private ToolStripMenuItem _mnuSnapToGrid;
+        private readonly Dictionary<int, ToolStripMenuItem> _mnuGridSizeItems = new Dictionary<int, ToolStripMenuItem>();
         private CodeAutoComplete _autoComplete;
         private Controls.CodeFindReplaceBar _findReplaceBar;
+        private bool _syncingLayerSelectionFromCanvas;
 
         // ── Pop-out code editor ──────────────────────────────────────────────
         private Panel  _codePanel;
@@ -354,6 +360,7 @@ namespace SESpriteLCDLayoutTool
                 AppSettings.MainSplitterDistance = _mainSplit?.SplitterDistance ?? 0;
                 AppSettings.WorkSplitterDistance = _workSplit?.SplitterDistance ?? 0;
                 AppSettings.TopSplitterDistance  = _topSplit?.SplitterDistance  ?? 0;
+                SaveCurrentEditorGridSettingsToApp(saveNow: false);
                 AppSettings.Save();
             };
         }
@@ -887,6 +894,7 @@ namespace SESpriteLCDLayoutTool
             if (_btnShowAll != null) _btnShowAll.Visible = false;
             UpdateActionBarVisibility();
             _canvas.CanvasLayout = _layout;
+            ApplyEditorGridSettingsFromLayoutOrApp();
             RefreshLayerList();
             ClearCodeDirty();
             RefreshCode();
@@ -894,6 +902,139 @@ namespace SESpriteLCDLayoutTool
             SetStatus("New layout — surface 512 × 512. Double-click a sprite in the palette or use Add buttons.");
             RefreshDebugStats();
         }
+
+        private void ApplyEditorGridSettingsFromLayoutOrApp()
+
+
+        {
+
+
+            bool snapToGrid = AppSettings.CanvasSnapToGrid;
+
+
+            int gridSize = AppSettings.CanvasGridSize;
+
+
+
+            if (_layout != null)
+
+
+            {
+
+
+                if (_layout.EditorSnapToGridSpecified)
+
+
+                    snapToGrid = _layout.EditorSnapToGrid;
+
+
+                if (_layout.EditorGridSizeSpecified && _layout.EditorGridSize >= 2)
+
+
+                    gridSize = _layout.EditorGridSize;
+
+
+            }
+
+
+
+            ApplyEditorGridSettings(snapToGrid, gridSize, persistAppSettings: false);
+
+
+        }
+
+
+
+        private void ApplyEditorGridSettings(bool snapToGrid, int gridSize, bool persistAppSettings)
+
+
+        {
+
+
+            if (_canvas == null) return;
+
+
+            gridSize = Math.Max(2, Math.Min(gridSize, 128));
+
+
+
+            _canvas.SnapToGrid = snapToGrid;
+
+
+            _canvas.GridSize = gridSize;
+
+
+
+            if (_mnuSnapToGrid != null && _mnuSnapToGrid.Checked != snapToGrid)
+
+
+                _mnuSnapToGrid.Checked = snapToGrid;
+
+
+
+            foreach (var kv in _mnuGridSizeItems)
+
+
+                kv.Value.Checked = kv.Key == gridSize;
+
+
+
+            if (persistAppSettings)
+
+
+                SaveCurrentEditorGridSettingsToApp(saveNow: true);
+
+
+        }
+
+
+
+        private void SaveCurrentEditorGridSettingsToApp(bool saveNow)
+
+
+        {
+
+
+            if (_canvas == null) return;
+
+
+            AppSettings.CanvasSnapToGrid = _canvas.SnapToGrid;
+
+
+            AppSettings.CanvasGridSize = _canvas.GridSize;
+
+
+            if (saveNow) AppSettings.Save();
+
+
+        }
+
+
+
+        private void CaptureEditorGridSettingsToLayout()
+
+
+        {
+
+
+            if (_layout == null || _canvas == null) return;
+
+
+            _layout.EditorSnapToGrid = _canvas.SnapToGrid;
+
+
+            _layout.EditorSnapToGridSpecified = true;
+
+
+            _layout.EditorGridSize = _canvas.GridSize;
+
+
+            _layout.EditorGridSizeSpecified = true;
+
+
+        }
+
+
 
         private void ApplySurfacePreset(int idx)
         {
@@ -1190,11 +1331,11 @@ namespace SESpriteLCDLayoutTool
                     if (isText)
                     {
                         _lblRotScale.Text         = "SCALE (RotationOrScale)";
-                        _numRotScale.Minimum      = 0.1M;
+                        _numRotScale.Minimum      = 0.01M;
                         _numRotScale.Maximum      = 20M;
-                        _numRotScale.DecimalPlaces = 2;
-                        _numRotScale.Increment    = 0.1M;
-                        _numRotScale.Value        = (decimal)Math.Round(ClampF(sp.Scale, 0.1f, 20f), 2);
+                        _numRotScale.DecimalPlaces = 3;
+                        _numRotScale.Increment    = 0.005M;
+                        _numRotScale.Value        = (decimal)Math.Round(ClampF(sp.Scale, 0.01f, 20f), 3);
 
                         _txtText.Text             = sp.Text ?? "";
                         int fi = Array.IndexOf(SpriteCatalog.Fonts, sp.FontId);
@@ -1203,12 +1344,13 @@ namespace SESpriteLCDLayoutTool
                     }
                     else
                     {
-                        _lblRotScale.Text         = "ROTATION (radians)";
-                        _numRotScale.Minimum      = -7M;
-                        _numRotScale.Maximum      = 7M;
-                        _numRotScale.DecimalPlaces = 3;
-                        _numRotScale.Increment    = 0.05M;
-                        _numRotScale.Value        = (decimal)Math.Round(ClampF(sp.Rotation, -7f, 7f), 3);
+                        _lblRotScale.Text         = "ROTATION (degrees)";
+                        _numRotScale.Minimum      = -360M;
+                        _numRotScale.Maximum      = 360M;
+                        _numRotScale.DecimalPlaces = 1;
+                        _numRotScale.Increment    = 1M;
+                        float degrees = sp.Rotation * 180f / (float)Math.PI;
+                        _numRotScale.Value        = (decimal)Math.Round(ClampF(degrees, -360f, 360f), 1);
                     }
 
                         _colorPreview.BackColor = sp.Color;
@@ -1226,41 +1368,69 @@ namespace SESpriteLCDLayoutTool
                     }
 
                         // Sync layer list selection (uses _layerListSprites which reflects sort order + isolation filtering)
-                        if (sp != null && _layout != null && _layerListSprites != null)
+                        if (!_syncingLayerSelectionFromCanvas)
                         {
-                            int idx = _layerListSprites.IndexOf(sp);
-                            _lstLayers.SelectedIndex = (idx >= 0 && idx < _lstLayers.Items.Count) ? idx : -1;
-                        }
-                        else
-                        {
-                            _lstLayers.SelectedIndex = -1;
+                            _syncingLayerSelectionFromCanvas = true;
+                            try
+                            {
+                                _lstLayers.ClearSelected();
+                                if (sp != null && _layout != null && _layerListSprites != null)
+                                {
+                                    int idx = _layerListSprites.IndexOf(sp);
+                                    if (idx >= 0 && idx < _lstLayers.Items.Count)
+                                        _lstLayers.SetSelected(idx, true);
+                                }
+                            }
+                            finally
+                            {
+                                _syncingLayerSelectionFromCanvas = false;
+                            }
                         }
             }
             finally { _updatingProps = false; }
 
-            RefreshExpressionColors();
-            // Skip RefreshCode during execution — the execution handler manages code display.
-            // Without this guard, expression-based PB code (e.g. $"Temp: {temperature:F1}°C")
-            // gets destroyed: PatchOriginalSource fails for expression text → GenerateRoundTrip
-            // replaces expressions with literal evaluated values.
-            if (!_executingCode)
-                RefreshCode();  // Protected by _codeBoxDirty check inside RefreshCode()
-            HighlightLinkedVariables(_canvas.SelectedSprite);
+            if (sp != null)
+            {
+                RefreshExpressionColors();
+                HighlightLinkedVariables(sp);
+            }
+            else
+            {
+                _exprColorPanel.Controls.Clear();
+                _exprColorPanel.Visible = false;
+                _exprColorLabel.Visible = false;
+            }
             UpdateStatus();
         }
 
         private void OnSpriteModified(object sender, EventArgs e)
         {
+            MarkGameBridgeDirty();
+            _canvas?.MarkSceneCacheDirty();
             var sp = _canvas.SelectedSprite;
             if (sp == null) return;
 
             _updatingProps = true;
             try
             {
-                _numX.Value = (decimal)Math.Round(ClampF(sp.X,      -8192f, 8192f), 1);
-                _numY.Value = (decimal)Math.Round(ClampF(sp.Y,      -8192f, 8192f), 1);
-                _numW.Value = (decimal)Math.Round(ClampF(sp.Width,      1f, 8192f), 1);
-                _numH.Value = (decimal)Math.Round(ClampF(sp.Height,     1f, 8192f), 1);
+                SetNumericValueSafe(_numX, (decimal)Math.Round(ClampF(sp.X, -8192f, 8192f), 1));
+                SetNumericValueSafe(_numY, (decimal)Math.Round(ClampF(sp.Y, -8192f, 8192f), 1));
+                SetNumericValueSafe(_numW, (decimal)Math.Round(ClampF(sp.Width, 1f, 8192f), 1));
+                SetNumericValueSafe(_numH, (decimal)Math.Round(ClampF(sp.Height, 1f, 8192f), 1));
+
+                if (sp.Type == SpriteEntryType.Texture)
+                {
+                    _lblRotScale.Text = "ROTATION (degrees)";
+                    ConfigureNumericRange(_numRotScale, -360M, 360M, 1, 1M);
+                    float degrees = sp.Rotation * 180f / (float)Math.PI;
+                    SetNumericValueSafe(_numRotScale, (decimal)Math.Round(ClampF(degrees, -360f, 360f), 1));
+                }
+                else
+                {
+                    _lblRotScale.Text = "SCALE (RotationOrScale)";
+                    ConfigureNumericRange(_numRotScale, 0.01M, 20M, 3, 0.005M);
+                    SetNumericValueSafe(_numRotScale, (decimal)Math.Round(ClampF(sp.Scale, 0.01f, 20f), 3));
+                }
             }
             finally { _updatingProps = false; }
 
@@ -1268,14 +1438,31 @@ namespace SESpriteLCDLayoutTool
             // regeneration.  OnDragCompleted will refresh it once the drag ends.
             if (_canvas.IsDragging)
             {
-                _lblCodeTitle.Text      = "⟳ dragging…";
+                _lblCodeTitle.Text      = "âŸ³ draggingâ€¦";
                 _lblCodeTitle.ForeColor = Color.FromArgb(160, 160, 160);
                 UpdateStatus();
                 return;
             }
 
-            RefreshCode(writeBack: true);  // Protected by _codeBoxDirty check inside RefreshCode()
+            MarkLayoutCodePending();
             UpdateStatus();
+        }
+
+        private static void ConfigureNumericRange(NumericUpDown control, decimal minimum, decimal maximum, int decimalPlaces, decimal increment)
+        {
+            if (control == null) return;
+            if (control.Minimum != minimum) control.Minimum = minimum;
+            if (control.Maximum != maximum) control.Maximum = maximum;
+            if (control.DecimalPlaces != decimalPlaces) control.DecimalPlaces = decimalPlaces;
+            if (control.Increment != increment) control.Increment = increment;
+        }
+
+        private static void SetNumericValueSafe(NumericUpDown control, decimal value)
+        {
+            if (control == null) return;
+            if (value < control.Minimum) value = control.Minimum;
+            if (value > control.Maximum) value = control.Maximum;
+            if (control.Value != value) control.Value = value;
         }
 
         private void OnFontChanged(object sender, EventArgs e)
@@ -1312,6 +1499,8 @@ namespace SESpriteLCDLayoutTool
         private void OnPropChanged(object sender, EventArgs e)
         {
             if (_updatingProps || _canvas?.SelectedSprite == null) return;
+            MarkGameBridgeDirty();
+            _canvas?.MarkSceneCacheDirty();
             PushUndo();
             var sp = _canvas.SelectedSprite;
 
@@ -1322,42 +1511,52 @@ namespace SESpriteLCDLayoutTool
             sp.Height = (float)_numH.Value;
 
             if (sp.Type == SpriteEntryType.Texture)
-                sp.Rotation = (float)_numRotScale.Value;
+            {
+                sp.Rotation = (float)_numRotScale.Value * (float)Math.PI / 180f;
+            }
             else
             {
-                sp.Scale     = (float)_numRotScale.Value;
+                float newScale = (float)_numRotScale.Value;
+                string newFont = _cmbFont.SelectedItem?.ToString() ?? "White";
+                var newAlignment = (SpriteTextAlignment)_cmbAlignment.SelectedIndex;
+
+                sp.Scale     = newScale;
                 sp.Text      = _txtText.Text;
-                sp.FontId    = _cmbFont.SelectedItem?.ToString() ?? "White";
-                sp.Alignment = (SpriteTextAlignment)_cmbAlignment.SelectedIndex;
+                sp.FontId    = newFont;
+                sp.Alignment = newAlignment;
+
+                var selected = GetSelectedSprites();
+                if (selected.Count > 1 && (sender == _numRotScale || sender == _cmbFont || sender == _cmbAlignment))
+                {
+                    foreach (var other in selected)
+                    {
+                        if (other == sp || other.Type != SpriteEntryType.Text) continue;
+                        if (sender == _numRotScale) other.Scale = newScale;
+                        if (sender == _cmbFont) other.FontId = newFont;
+                        if (sender == _cmbAlignment) other.Alignment = newAlignment;
+                    }
+                }
             }
 
             _canvas.Invalidate();
             RefreshLayerList();
 
-            // Debounce the code writeback so rapid typing doesn't stutter.
-            if (_propWriteBackTimer == null)
-            {
-                _propWriteBackTimer = new System.Windows.Forms.Timer { Interval = PropWriteBackDebounceMs };
-                _propWriteBackTimer.Tick += (ts, te) =>
-                {
-                    _propWriteBackTimer.Stop();
-                    ClearCodeDirty();
-                    RefreshCode(writeBack: true);
-                };
-            }
-            _propWriteBackTimer.Stop();
-            _propWriteBackTimer.Start();
+            _propWriteBackTimer?.Stop();
+            MarkLayoutCodePending();
         }
 
         private void OnAlphaChanged(object sender, EventArgs e)
         {
             _lblAlpha.Text = _trackAlpha.Value.ToString();
             if (_updatingProps || _canvas?.SelectedSprite == null) return;
+            var selected = GetSelectedSprites();
+            if (selected.Count == 0) selected.Add(_canvas.SelectedSprite);
             PushUndo();
-            _canvas.SelectedSprite.ColorA = _trackAlpha.Value;
+            foreach (var sp in selected)
+                sp.ColorA = _trackAlpha.Value;
             _canvas.Invalidate();
             ClearCodeDirty();
-            RefreshCode(writeBack: true);
+            RefreshCodeAfterLayoutEdit(writeBack: true);
         }
 
         private void OnColorClick(object sender, EventArgs e)
@@ -1366,15 +1565,20 @@ namespace SESpriteLCDLayoutTool
             using (var dlg = new ColorDialog { Color = _canvas.SelectedSprite.Color, FullOpen = true })
             {
                 if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                var selected = GetSelectedSprites();
+                if (selected.Count == 0) selected.Add(_canvas.SelectedSprite);
                 PushUndo();
-                _canvas.SelectedSprite.ColorR = dlg.Color.R;
-                _canvas.SelectedSprite.ColorG = dlg.Color.G;
-                _canvas.SelectedSprite.ColorB = dlg.Color.B;
+                foreach (var sp in selected)
+                {
+                    sp.ColorR = dlg.Color.R;
+                    sp.ColorG = dlg.Color.G;
+                    sp.ColorB = dlg.Color.B;
+                }
                 // Preserve alpha
                 _colorPreview.BackColor = _canvas.SelectedSprite.Color;
                 _canvas.Invalidate();
                 ClearCodeDirty();
-                RefreshCode(writeBack: true);
+                RefreshCodeAfterLayoutEdit(writeBack: true);
             }
         }
 
@@ -1586,39 +1790,60 @@ namespace SESpriteLCDLayoutTool
             var list = new List<SpriteEntry>();
             if (_layout == null) return list;
 
-            // Include canvas multi-select (Shift+click on canvas)
+            // Canvas selection is authoritative. The layer list is mirrored from it,
+            // so reading both can accidentally resurrect stale layer selections.
             if (_canvas?.SelectedSprites != null && _canvas.SelectedSprites.Count > 0)
             {
                 foreach (var sp in _canvas.SelectedSprites)
-                    if (!list.Contains(sp)) list.Add(sp);
+                    if (sp != null && !list.Contains(sp)) list.Add(sp);
             }
 
-            // Include layer list multi-select
-            foreach (int idx in _lstLayers.SelectedIndices)
-            {
-                var sp = SpriteFromLayerIndex(idx);
-                if (sp != null && !list.Contains(sp)) list.Add(sp);
-            }
+            if (list.Count == 0 && _canvas?.SelectedSprite != null)
+                list.Add(_canvas.SelectedSprite);
+
             return list;
         }
 
         private void OnLayerListSelectionChanged(object sender, EventArgs e)
         {
-            if (_updatingProps || _layout == null)
+            if (_syncingLayerSelectionFromCanvas || _updatingProps || _layout == null)
             {
-                System.Diagnostics.Debug.WriteLine($"[OnLayerListSelectionChanged] SKIPPED — _updatingProps={_updatingProps}, _layout={((_layout == null) ? "null" : "ok")}");
+                System.Diagnostics.Debug.WriteLine($"[OnLayerListSelectionChanged] SKIPPED - syncing={_syncingLayerSelectionFromCanvas}, _updatingProps={_updatingProps}, _layout={((_layout == null) ? "null" : "ok")}");
                 return;
             }
 
             HideLayerListTooltip();
 
-            // In multi-select mode, set canvas to the focused item (last clicked)
-            // SelectedIndex still returns the most recently toggled item
             int idx = _lstLayers.SelectedIndex;
-            var sprite = SpriteFromLayerIndex(idx);
-            System.Diagnostics.Debug.WriteLine($"[OnLayerListSelectionChanged] idx={idx}, sprite='{sprite?.DisplayName ?? "(null)"}', _layerListSprites={((_layerListSprites == null) ? "null" : _layerListSprites.Count.ToString())}");
-            if (sprite != null)
-                _canvas.SelectedSprite = sprite;
+            var primary = SpriteFromLayerIndex(idx);
+            System.Diagnostics.Debug.WriteLine($"[OnLayerListSelectionChanged] idx={idx}, sprite='{primary?.DisplayName ?? "(null)"}', _layerListSprites={((_layerListSprites == null) ? "null" : _layerListSprites.Count.ToString())}");
+
+            _syncingLayerSelectionFromCanvas = true;
+            try
+            {
+                if (_lstLayers.SelectedIndices.Count > 1)
+                {
+                    var selected = new List<SpriteEntry>();
+                    foreach (int selectedIdx in _lstLayers.SelectedIndices)
+                    {
+                        var sp = SpriteFromLayerIndex(selectedIdx);
+                        if (sp != null && !selected.Contains(sp)) selected.Add(sp);
+                    }
+                    _canvas.SelectSprites(selected, primary ?? (selected.Count > 0 ? selected[selected.Count - 1] : null));
+                }
+                else if (primary != null)
+                {
+                    _canvas.SelectedSprite = primary;
+                }
+                else
+                {
+                    _canvas.SelectedSprite = null;
+                }
+            }
+            finally
+            {
+                _syncingLayerSelectionFromCanvas = false;
+            }
         }
 
         private void OnLayerListDoubleClick(object sender, MouseEventArgs e)
@@ -3240,3 +3465,4 @@ namespace SESpriteLCDLayoutTool
 
     }
 }
+

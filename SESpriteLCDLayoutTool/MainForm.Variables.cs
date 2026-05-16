@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -1166,6 +1166,10 @@ namespace SESpriteLCDLayoutTool
             btnRefresh.Size   = new Size(120, 26);
             btnRefresh.Click += (s, e) => RefreshCode(writeBack: true, force: true);  // User explicitly wants fresh code + write back to project
 
+            var btnUpdateCode = DarkButton("Update Code", Color.FromArgb(50, 95, 145));
+            btnUpdateCode.Size = new Size(105, 26);
+            btnUpdateCode.Click += (s, e) => CommitLayoutCodeUpdate();
+
             var btnResetSource = DarkButton("Reset Source", Color.FromArgb(120, 60, 0));
             btnResetSource.Size = new Size(95, 26);
             btnResetSource.Click += (s, e) =>
@@ -1215,6 +1219,7 @@ namespace SESpriteLCDLayoutTool
             toolbar.Controls.Add(btnPaste);
             toolbar.Controls.Add(btnCopy);
             toolbar.Controls.Add(btnRefresh);
+            toolbar.Controls.Add(btnUpdateCode);
             toolbar.Controls.Add(btnResetSource);
             toolbar.Controls.Add(_cmbCodeStyle);
             toolbar.Controls.Add(_btnApplyCode);

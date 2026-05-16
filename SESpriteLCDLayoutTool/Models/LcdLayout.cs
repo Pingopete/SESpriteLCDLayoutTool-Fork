@@ -12,6 +12,16 @@ namespace SESpriteLCDLayoutTool.Models
         public int SurfaceHeight { get; set; } = 512;
         public List<SpriteEntry> Sprites { get; set; } = new List<SpriteEntry>();
 
+        /// <summary>Editor-only snap-to-grid setting saved with this layout when available.</summary>
+        public bool EditorSnapToGrid { get; set; }
+        [XmlIgnore]
+        public bool EditorSnapToGridSpecified { get; set; }
+
+        /// <summary>Editor-only grid size in LCD pixels saved with this layout when available.</summary>
+        public int EditorGridSize { get; set; }
+        [XmlIgnore]
+        public bool EditorGridSizeSpecified { get; set; }
+
         /// <summary>
         /// Optional 2D bone rigs attached to this layout. Each rig binds a subset of sprites
         /// to a bone hierarchy so they can be posed/animated together. Persisted with the layout
