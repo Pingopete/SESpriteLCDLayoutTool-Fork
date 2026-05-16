@@ -1,3 +1,42 @@
+# SE Sprite LCD Layout Tool REDUX
+
+> Unofficial experimental fork / working backup by [Pingopete](https://github.com/Pingopete).
+>
+> This repository is **not an official release** of the original SE Sprite LCD Layout Tool and is **not affiliated with or endorsed by** the original author unless stated otherwise.
+
+This repo is currently a personal working fork of [`SilentAssassin82/SESpriteLCDLayoutTool`](https://github.com/SilentAssassin82/SESpriteLCDLayoutTool), created to preserve and iterate on local workflow changes for Space Engineers LCD sprite layout work.
+
+The original project, design, and baseline documentation belong to the upstream author. This fork exists so the modified editor code is backed up and recoverable while I experiment with live in-game preview, editing ergonomics, rotated sprite controls, grid snapping improvements, and related workflow patches.
+
+## Status
+
+- Experimental fork / development backup.
+- Not packaged or presented as an official upstream build.
+- Changes may be rough, opinionated, or specific to my Space Engineers modding workflow.
+- Please use the upstream repository for the original tool unless you specifically want this modified branch.
+
+## Notable Redux Changes
+
+- Live bridge/export workflow for previewing layouts on an in-game LCD test panel.
+- Faster editing path with cached scene rendering and reduced post-drag stalls.
+- Smaller grid snap increments, including 2 px and 4 px workflows.
+- Multi-select improvements for color, alpha, duplication, layer operations, moving, and resizing.
+- Photoshop-style one-sided resize behavior with Shift center/ratio modifiers.
+- Rotated texture sprite controls, rotated selection boxes, rotated handle hit-testing, and local-axis resize.
+- Cleaner square preview rendering for alignment work.
+- Persistent editor grid settings.
+
+## Upstream Credit
+
+Original project: [`SilentAssassin82/SESpriteLCDLayoutTool`](https://github.com/SilentAssassin82/SESpriteLCDLayoutTool)
+
+License: MIT, as provided by the upstream repository. See [LICENSE](LICENSE).
+
+---
+
+## Original Upstream README
+
+The section below is retained from the upstream project for reference and may describe features, screenshots, release state, or workflows from the original tool. It should not be read as an official description of this experimental REDUX fork.
 # SE Sprite LCD Layout Tool
 
 A powerful **WYSIWYG visual editor** for designing custom LCD sprite layouts in **[Space Engineers](https://store.steampowered.com/app/244850/Space_Engineers/)**.
