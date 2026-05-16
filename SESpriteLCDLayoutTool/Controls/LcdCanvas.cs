@@ -65,6 +65,7 @@ namespace SESpriteLCDLayoutTool.Controls
             DragMode.ResizeSE, DragMode.ResizeS, DragMode.ResizeSW,
             DragMode.ResizeW,
         };
+        private const float SpriteMinSize = 1f;
 
         // â”€â”€ Fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         private LcdLayout _layout;
@@ -1872,8 +1873,8 @@ namespace SESpriteLCDLayoutTool.Controls
 
         private void ApplySpriteSurfaceRect(SpriteEntry sprite, RectangleF rect, bool applyHorizontal = true, bool applyVertical = true)
         {
-            float w = Math.Max(2f, rect.Width);
-            float h = Math.Max(2f, rect.Height);
+            float w = Math.Max(SpriteMinSize, rect.Width);
+            float h = Math.Max(SpriteMinSize, rect.Height);
 
             if (sprite.Type == SpriteEntryType.Text)
             {
@@ -1905,15 +1906,15 @@ namespace SESpriteLCDLayoutTool.Controls
             }
 
             if (applyHorizontal)
-                sprite.Width = Math.Max(2f, Snap(w));
+                sprite.Width = Math.Max(SpriteMinSize, Snap(w));
             if (applyVertical)
-                sprite.Height = Math.Max(2f, Snap(h));
+                sprite.Height = Math.Max(SpriteMinSize, Snap(h));
         }
 
         private void ApplySpriteSurfaceRectExact(SpriteEntry sprite, RectangleF rect, bool applyHorizontal = true, bool applyVertical = true)
         {
-            float w = Math.Max(2f, rect.Width);
-            float h = Math.Max(2f, rect.Height);
+            float w = Math.Max(SpriteMinSize, rect.Width);
+            float h = Math.Max(SpriteMinSize, rect.Height);
 
             if (sprite.Type == SpriteEntryType.Text)
             {
@@ -1959,9 +1960,9 @@ namespace SESpriteLCDLayoutTool.Controls
 
             if (applyHorizontal)
             {
-                float width = Math.Max(2f, right - left);
+                float width = Math.Max(SpriteMinSize, right - left);
                 if (_snapToGrid)
-                    width = Math.Max(2f, Snap(width));
+                    width = Math.Max(SpriteMinSize, Snap(width));
 
                 if (mode == DragMode.ResizeW || mode == DragMode.ResizeNW || mode == DragMode.ResizeSW)
                 {
@@ -1977,9 +1978,9 @@ namespace SESpriteLCDLayoutTool.Controls
 
             if (applyVertical)
             {
-                float height = Math.Max(2f, bottom - top);
+                float height = Math.Max(SpriteMinSize, bottom - top);
                 if (_snapToGrid)
-                    height = Math.Max(2f, Snap(height));
+                    height = Math.Max(SpriteMinSize, Snap(height));
 
                 if (mode == DragMode.ResizeN || mode == DragMode.ResizeNW || mode == DragMode.ResizeNE)
                 {
@@ -2002,8 +2003,8 @@ namespace SESpriteLCDLayoutTool.Controls
 
             float left = orig.Left + dx;
             float top = orig.Top + dy;
-            float width = Math.Max(2f, orig.Width);
-            float height = Math.Max(2f, orig.Height);
+            float width = Math.Max(SpriteMinSize, orig.Width);
+            float height = Math.Max(SpriteMinSize, orig.Height);
 
             if (_snapToGrid)
             {
@@ -2077,7 +2078,7 @@ namespace SESpriteLCDLayoutTool.Controls
                 case DragMode.ResizeW:  left += dx; break;
             }
 
-            const float minSize = 2f;
+            const float minSize = SpriteMinSize;
             if (right - left < minSize)
             {
                 if (mode == DragMode.ResizeW || mode == DragMode.ResizeNW || mode == DragMode.ResizeSW)
@@ -2109,23 +2110,23 @@ namespace SESpriteLCDLayoutTool.Controls
             float vSign = (mode == DragMode.ResizeS || mode == DragMode.ResizeSE || mode == DragMode.ResizeSW) ? 1f :
                           (mode == DragMode.ResizeN || mode == DragMode.ResizeNW || mode == DragMode.ResizeNE) ? -1f : 0f;
 
-            float newW = Math.Max(2f, orig.Width + hSign * dx * 2f);
-            float newH = Math.Max(2f, orig.Height + vSign * dy * 2f);
+            float newW = Math.Max(SpriteMinSize, orig.Width + hSign * dx * 2f);
+            float newH = Math.Max(SpriteMinSize, orig.Height + vSign * dy * 2f);
 
             if (keepAspect && orig.Width > 0f && orig.Height > 0f)
             {
                 float sx = newW / orig.Width;
                 float sy = newH / orig.Height;
                 float factor = Math.Abs(sx - 1f) >= Math.Abs(sy - 1f) ? sx : sy;
-                factor = Math.Max(2f / orig.Width, Math.Max(2f / orig.Height, factor));
+                factor = Math.Max(SpriteMinSize / orig.Width, Math.Max(SpriteMinSize / orig.Height, factor));
                 newW = orig.Width * factor;
                 newH = orig.Height * factor;
             }
 
             if (_snapToGrid)
             {
-                newW = Math.Max(2f, Snap(newW));
-                newH = Math.Max(2f, Snap(newH));
+                newW = Math.Max(SpriteMinSize, Snap(newW));
+                newH = Math.Max(SpriteMinSize, Snap(newH));
             }
 
             float cx = orig.Left + orig.Width / 2f;
@@ -2149,23 +2150,23 @@ namespace SESpriteLCDLayoutTool.Controls
 
             float widthDelta = hSign * localDx * (fromCenter ? 2f : 1f);
             float heightDelta = vSign * localDy * (fromCenter ? 2f : 1f);
-            float newW = Math.Max(2f, orig.Width + widthDelta);
-            float newH = Math.Max(2f, orig.Height + heightDelta);
+            float newW = Math.Max(SpriteMinSize, orig.Width + widthDelta);
+            float newH = Math.Max(SpriteMinSize, orig.Height + heightDelta);
 
             if (keepAspect && orig.Width > 0f && orig.Height > 0f)
             {
                 float sx = newW / orig.Width;
                 float sy = newH / orig.Height;
                 float factor = Math.Abs(sx - 1f) >= Math.Abs(sy - 1f) ? sx : sy;
-                factor = Math.Max(2f / orig.Width, Math.Max(2f / orig.Height, factor));
+                factor = Math.Max(SpriteMinSize / orig.Width, Math.Max(SpriteMinSize / orig.Height, factor));
                 newW = orig.Width * factor;
                 newH = orig.Height * factor;
             }
 
             if (_snapToGrid)
             {
-                newW = Math.Max(2f, Snap(newW));
-                newH = Math.Max(2f, Snap(newH));
+                newW = Math.Max(SpriteMinSize, Snap(newW));
+                newH = Math.Max(SpriteMinSize, Snap(newH));
             }
 
             float cx = orig.Left + orig.Width / 2f;
